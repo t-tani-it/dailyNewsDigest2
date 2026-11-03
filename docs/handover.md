@@ -142,7 +142,7 @@
   - 概要、主な機能、アーキテクチャ、無料LLMポリシー、PowerShell/cmd両方の仮想環境有効化、セットアップ、Docker/ローカル起動、画面/API一覧、テスト、セキュリティ、既知の制約を記載。
 - **GitHub反映（Step 5-3）**：
   - Gitリポジトリを `main` ブランチで初期化。
-  - 骨格、コア/ORM、スキーマ/Repository、RSS/計測、LLM、Web、テスト、ドキュメントの8コミットに分割。
+  - 骨格、コア/ORM、スキーマ/Repository、RSS/計測、LLM、Web、テスト、ドキュメントの論理的な複数コミットに分割。
   - 公開禁止情報スキャンを実施。検出された1件はログマスク用正規表現（`app/core/logging.py`）のみで、実際のローカルパス・APIキー・個人IDではないことを確認。
   - `gh` CLI（HTTPS認証）でpublicリポジトリを作成し、`main` をpush。
 

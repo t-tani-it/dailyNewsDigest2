@@ -13,7 +13,7 @@
 - フェーズ完了時に `docs/handover.md` を更新する。
 
 ## 現在地
-- 現在のサブステップ：**Step 5-2 完了 / 次回 Step 5-3（全32項目テスト最終確認・README整備・最終ハンドオーバー・GitHub反映）**
+- 現在のサブステップ：**Step 5-3 完了 / Phase 1〜4 全サブステップ完了**
 - 最終更新日：2026-11-03
 
 ---
@@ -79,8 +79,11 @@
   - 成果物：`app/views/templates/history.html`, `usage.html`, `app/services/usage_dashboard_service.py`, `app/controllers/api_usage_controller.py`, `GET /usage`, `GET /api/usage`, `tests/test_usage_dashboard.py`
   - 内容：run_id別トークン表示、未計測と0の区別、モデル別集計、自動切替履歴、有料3モデル単価確認状態、実行別サマリー
   - 検証：`pytest` 113件通過、`ruff check app alembic tests` エラー0件
-- [ ] **Step 5-3**: 全32項目テスト最終確認・README整備・最終ハンドオーバー・GitHub反映
-  - 成果物：`README.md`, `docs/handover.md`, `docs/progress.md`
+- [x] **Step 5-3**: 全32項目テスト最終確認・README整備・最終ハンドオーバー・GitHub反映（2026-11-03 完了）
+  - 成果物：`README.md`, `docs/test_matrix.md`, `docs/handover.md`, `docs/progress.md`
+  - 内容：要件32項目とテストの対応表、PowerShell/cmd両対応のセットアップ・起動手順、無料LLMポリシー、API一覧、既知の制約、最終ハンドオーバー
+  - GitHub：`main` ブランチで論理的な複数コミットに分割し、publicリポジトリへpush
+  - 検証：`pytest` 113件通過、`ruff check app alembic tests` エラー0件、32/32項目確認済み
 
 ---
 
@@ -213,6 +216,8 @@
 - 検証結果：`pytest` 113 passed / `ruff check app alembic tests` エラー0件
 
 ## 未完了・注意事項
-- Gitリポジトリが未初期化のため、コミット履歴・GitHub公開は未実施。Step 5-3 で `.gitignore` と公開禁止情報を確認してから実施する。
+- Gitリポジトリは初期化済み。`main` ブランチで論理的な複数コミットに分割し、publicリポジトリへpush済み。
 - Docker CLI 未導入のため、PostgreSQL 16 の実接続・Alembic マイグレーション実行は未検証。
 - Phase 2 の実測は「実行した日」のみ記録される。2日分の実測を確定するには、別日に `POST /api/metrics/measure` または通常更新を実行する必要がある。
+- 実際のGemini / OpenRouter無料APIのレート制限・無料枠挙動、同一Wi-Fi内スマートフォンからの実機表示は未確認。
+- 初期版は認証機能を持たないため、インターネットへ公開しないこと。
