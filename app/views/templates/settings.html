@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}設定画面 | dailyNewsDigest{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h1>システム設定</h1>
+  <p class="lead-text">
+    ニュース表示件数、興味カテゴリ・除外カテゴリ、自動更新時刻、概要使用文字数、RSS取得元を設定できます。
+    <strong>※有料APIを実行しないポリシーはシステムで固定されており、設定画面から無効化することはできません。</strong>
+  </p>
+
+  <div class="notice-box">
+    <h3>APIキー・無料利用ポリシー状態（キーの値はブラウザへ送信されません）</h3>
+    <ul class="summary-list">
+      <li>Gemini APIキー設定状態：<strong>{{ "設定済み" if safe_env.gemini_key_configured else "未設定（.env で設定）" }}</strong></li>
+      <li>Google AI Studio 請求先未設定（Free Tier）確認：<strong>{{ "確認済み" if safe_env.gemini_free_tier_confirmed else "未確認（AI Studio上で確認してください）" }}</strong></li>
+      <li>OpenRouter APIキー設定状態：<strong>{{ "設定済み" if safe_env.openrouter_key_configured else "未設定（.env で設定）" }}</strong></li>
+      <li>有料LLMモデル実行：<strong>禁止（固定）</strong></li>
+    </ul>
+  </div>
+
+  <form id="settings-form" class="form-grid" onsubmit="return false;">
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label for="setting-display-count" class="form-label">ニュース表示件数（1〜15件、初期値15件）</label>
+        <input
+          type="number"
+          id="setting-display-count"
+          min="1"
+          max="15"
+          value="{{ user_setting.display_count }}"
+          class="form-input"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="setting-summary-char-limit" class="form-label">ニュース概要使用文字数（0〜500文字、初期値200文字）</label>
+        <input
+          type="number"
+          id="setting-summary-char-limit"
+          min="0"
+          max="500"
+          value="{{ user_setting.summary_char_limit }}"
+          class="form-input"
+        >
+      </div>
+    </div>
+
+    <div class="form-row-2col">
+      <div class="form-group">
+        <label for="setting-auto-update-time" class="form-label">毎朝の自動更新時刻（Asia/Tokyo）</label>
+        <input
+          type="time"
+          id="setting-auto-update-time"
+          value="{{ user_setting.auto_update_time }}"
+          class="form-input"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="setting-daily-call-limit" class="form-label">日次API呼び出し回数の安全上限</label>
+        <input
+          type="number"
+          id="setting-daily-call-limit"
+          min="1"
+          max="5000"
+          value="{{ user_setting.daily_api_call_limit }}"
+          class="form-input"
+        >
+      </div>
+    </div>
+
+    <div class="form-group">
+      <span class="form-label">興味カテゴリ（複数選択可）</span>
+      <div class="checkbox-grid" id="setting-selected-categories">
+        {% for cat_key, cat_info in news_categories.items() %}
+          {% if cat_key != "unclassified" %}
+          <label class="checkbox-item">
+            <input
+              type="checkbox"
+              name="setting_selected_categories"
+              value="{{ cat_key }}"
+              {% if cat_key in user_setting.selected_categories %}checked{% endif %}
+            >
+            <span>{{ cat_info.label }}</span>
+          </label>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-group">
+      <span class="form-label">除外カテゴリ（記事単位で除外）</span>
+      <div class="checkbox-grid" id="setting-excluded-categories">
+        {% for exc_key, exc_label in excluded_categories_map.items() %}
+          <label class="checkbox-item">
+            <input
+              type="checkbox"
+              name="setting_excluded_categories"
+              value="{{ exc_key }}"
+              {% if exc_key in user_setting.excluded_categories %}checked{% endif %}
+            >
+            <span>{{ exc_label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="btn-save-settings">
+        設定を保存する
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>RSS取得元の管理</h2>
+  <p class="help-text">
+    ※利用条件確認状態が <code>verified</code>（確認済み）かつ「有効」の情報源のみ自動収集に使用されます。
+    未確認の情報源は安全側で自動使用を停止します。
+  </p>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>情報源名</th>
+          <th>RSS URL</th>
+          <th>有効</th>
+          <th>利用条件確認状態</th>
+          <th>概要保存 / AI要約可否</th>
+          <th>最終取得状態</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for src in rss_sources %}
+          <tr>
+            <td><strong>{{ src.name }}</strong></td>
+            <td><code class="url-code">{{ src.url }}</code></td>
+            <td>{{ "有効" if src.is_enabled else "無効" }}</td>
+            <td>
+              <span class="badge {% if src.terms_status == 'verified' %}badge-success{% else %}badge-warn{% endif %}">
+                {{ src.terms_status }}
+              </span>
+            </td>
+            <td>{{ "可" if src.allow_store_summary else "不可" }} / {{ "可" if src.allow_ai_summary else "不可" }}</td>
+            <td>{{ src.last_status }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

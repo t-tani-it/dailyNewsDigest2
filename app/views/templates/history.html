@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}過去のニュース・実行履歴 | dailyNewsDigest{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header-row">
+    <h1>過去のニュース・実行履歴</h1>
+    <a href="/usage" class="btn btn-secondary btn-sm">AI使用量ダッシュボード</a>
+  </div>
+  <p class="lead-text">
+    各実行（run_id）時点で選定されたニュース一覧、AI処理・使用量サマリー、有料モデル参考料金をそのまま参照できます。
+    後日の更新やカテゴリ変更によって過去の実行結果が書き換わることはありません。
+    トークンは実行単位（run_id）で合算し、未計測の場合は「未計測」と表示します。
+  </p>
+
+  {% if runs %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>run_id</th>
+            <th>実行日時（JST）</th>
+            <th>実行方法</th>
+            <th>状態</th>
+            <th>RSS取得 / 重複排除 / 表示</th>
+            <th>AI分類 / AI要約</th>
+            <th>トークン（入力 / 出力 / 合計）</th>
+            <th>使用モデル</th>
+            <th>元実行</th>
+            <th>詳細表示</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in runs %}
+            {% set u = run_usage_map.get(r.run_id) %}
+            <tr class="{% if r.run_id == selected_run_id %}active-row{% endif %}">
+              <td><code>{{ r.run_id[:8] }}...</code></td>
+              <td>{{ format_datetime_jst(r.started_at) }}</td>
+              <td>{{ run_type_labels.get(r.run_type, r.run_type) }}</td>
+              <td>
+                {% if r.status == "completed" %}
+                  <span class="badge badge-success">{{ run_status_labels.get(r.status, r.status) }}</span>
+                {% elif r.status == "ai_pending" %}
+                  <span class="badge badge-warn">{{ run_status_labels.get(r.status, r.status) }}</span>
+                {% else %}
+                  <span class="badge">{{ run_status_labels.get(r.status, r.status) }}</span>
+                {% endif %}
+                {% if r.reused_analysis %}
+                  <span class="badge badge-info">分析再利用</span>
+                {% endif %}
+              </td>
+              <td>{{ r.fetched_count }} / {{ r.deduped_count }} / {{ r.displayed_count }}件</td>
+              <td>{{ r.ai_classified_count }} / {{ r.ai_summarized_count }}件</td>
+              <td>
+                {% if u and u.total_tokens is not none %}
+                  {{ "{:,}".format(u.total_input_tokens) }} /
+                  {{ "{:,}".format(u.total_output_tokens) }} /
+                  {{ "{:,}".format(u.total_tokens) }}
+                {% else %}
+                  <span class="text-muted">未計測</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if u and u.used_model_id %}
+                  {{ u.used_provider }}<br><small>{{ u.used_model_id }}</small>
+                {% else %}
+                  <span class="text-muted">未使用 / 未計測</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.parent_run_id %}
+                  <a href="/history?run_id={{ r.parent_run_id }}"><code>{{ r.parent_run_id[:8] }}...</code></a>
+                {% else %}-{% endif %}
+              </td>
+              <td>
+                <a href="/history?run_id={{ r.run_id }}" class="btn btn-secondary btn-sm">この実行を表示</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>実行履歴がまだありません。</p>
+  {% endif %}
+</section>
+
+{% if selected_run_id %}
+<section id="history-run-summary" class="panel summary-panel">
+  <div class="panel-header-row">
+    <h2>選択中の実行サマリー（run_id: {{ summary.run_id }}）</h2>
+    <a href="/usage?run_id={{ summary.run_id }}" class="btn btn-secondary btn-sm">
+      この実行の使用量をダッシュボードで見る
+    </a>
+  </div>
+  <div class="summary-comparison-grid">
+    <div class="summary-column">
+      <h3>【実行情報】</h3>
+      <ul class="summary-list">
+        <li>実行日時：{{ summary.executed_at_jst_str }}</li>
+        <li>実行方法：{{ summary.run_type_label }}</li>
+        <li>RSS取得記事数：{{ summary.fetched_count }}件</li>
+        <li>重複排除後：{{ summary.deduped_count }}件</li>
+        <li>AI分類件数：{{ summary.ai_classified_count }}件</li>
+        <li>AI要約件数：{{ summary.ai_summarized_count }}件</li>
+        <li>最終表示：{{ summary.displayed_count }}件</li>
+        <li>実行状態：{{ summary.status_label }}</li>
+        {% if summary.parent_run_id %}
+          <li>元実行：<code>{{ summary.parent_run_id }}</code></li>
+        {% endif %}
+      </ul>
+    </div>
+    <div class="summary-column">
+      <h3>【トークン使用量】</h3>
+      <ul class="summary-list">
+        <li>使用プロバイダー：{{ summary.used_provider }}</li>
+        <li>使用モデル：{{ summary.used_model }}</li>
+        <li>APIリクエスト数：{{ summary.api_request_count }}回</li>
+        <li>入力：{% if summary.total_input_tokens is not none %}{{ "{:,}".format(summary.total_input_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        <li>出力：{% if summary.total_output_tokens is not none %}{{ "{:,}".format(summary.total_output_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        {% if summary.total_reasoning_tokens %}
+          <li>推論内訳：{{ "{:,}".format(summary.total_reasoning_tokens) }} tokens（出力内包・二重計上なし）</li>
+        {% endif %}
+        <li>合計：{% if summary.total_tokens is not none %}{{ "{:,}".format(summary.total_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        <li>計測状態：{{ summary.usage_measurement_status }}</li>
+      </ul>
+    </div>
+    <div class="summary-column">
+      <h3>【有料モデル参考料金】</h3>
+      <ul class="summary-list">
+        {% for est in summary.paid_model_estimates %}
+          <li>
+            <strong>{{ est.model_name }}</strong>：{{ est.display_cost }}
+            <small class="help-text">（確認日時: {{ est.verified_at_str }}）</small>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="disclaimer-note">{{ summary.disclaimer }}</p>
+    </div>
+  </div>
+</section>
+
+<section class="news-list-section">
+  <h2>この実行で選定されたニュース一覧（{{ cards | length }}件）</h2>
+  <div class="news-cards-grid">
+    {% for card in cards %}
+      <article class="news-card">
+        <div class="card-meta-top">
+          <span class="badge badge-category">{{ card.category_label }}</span>
+          <span class="badge badge-importance">重要度: {{ card.importance_score }}</span>
+          <span class="card-source">出典: {{ card.source_name }}</span>
+          {% if card.is_reused %}
+            <span class="badge badge-info">既存分析再利用</span>
+          {% endif %}
+        </div>
+        <h3 class="card-title">
+          <a href="{{ card.url }}" target="_blank" rel="noopener noreferrer">{{ card.title }}</a>
+        </h3>
+        <div class="card-timestamps">
+          <span>公開日時: {{ card.published_at_jst_str }}</span>
+        </div>
+        <div class="card-summary-block">
+          <p class="card-summary"><strong>要約：</strong>{{ card.summary_ja }}</p>
+          <p class="card-why"><strong>なぜ重要か：</strong>{{ card.why_important }}</p>
+        </div>
+        <div class="card-footer">
+          <a href="{{ card.url }}" target="_blank" rel="noopener noreferrer" class="card-link">元記事を読む &rarr;</a>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}dailyNewsDigest{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand-group">
+        <a href="/" class="brand-title">dailyNewsDigest</a>
+        <span class="brand-badge">無料LLM限定・有料API実行禁止</span>
+      </div>
+      <nav class="main-nav" aria-label="メインナビゲーション">
+        <a href="/" class="nav-link">重要ニュース</a>
+        <a href="/history" class="nav-link">実行履歴</a>
+        <a href="/usage" class="nav-link">AI使用量</a>
+        <a href="/metrics" class="nav-link">RSS計測</a>
+        <a href="/onboarding" class="nav-link">初回/日付取得</a>
+        <a href="/settings" class="nav-link">設定</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <div id="status-banner" class="status-banner hidden" role="status" aria-live="polite"></div>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>dailyNewsDigest v3.0 — ニュース収集とAI分析は分離されています。RSS公開範囲外の記事は取得できない場合があります。</p>
+    </div>
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

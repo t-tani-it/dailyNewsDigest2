@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}RSS取得量計測（Phase 2） | dailyNewsDigest{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header-row">
+    <h1>RSS取得量計測（Phase 2）</h1>
+    <button type="button" class="btn btn-primary" id="btn-run-metrics-measurement">
+      RSS取得量を計測
+    </button>
+  </div>
+
+  <p class="lead-text">
+    LLMを呼び出さず、RSS収集だけで1日あたりの取得件数・重複率・失敗率・文字数・推定入力トークンを記録します。
+    開発指示書の「7日間」は本プロジェクトでは <strong>2日間</strong> として扱います。
+    2日分の実測が揃うまでは暫定表示です。計測専用実行では記事本文をDBへ保存しません。
+  </p>
+
+  <div class="summary-comparison-grid">
+    <div class="summary-column">
+      <h3>【実測進捗】</h3>
+      <ul class="summary-list">
+        <li>状態：
+          {% if report.is_actual_measurement %}
+            <span class="badge badge-success">{{ report.status_label }}</span>
+          {% else %}
+            <span class="badge badge-warn">{{ report.status_label }}</span>
+          {% endif %}
+        </li>
+        <li>実測日数：{{ report.actual_days }} / {{ report.required_days }}日</li>
+        <li>残り必要日数：{{ report.remaining_days }}日</li>
+        <li>最新計測日：{{ report.latest_metric_date or "-" }}</li>
+        <li>記録済み日数：{{ report.days_recorded }}日</li>
+      </ul>
+    </div>
+
+    <div class="summary-column">
+      <h3>【集計値（実測分のみ）】</h3>
+      <ul class="summary-list">
+        <li>RSS取得件数：{{ "{:,}".format(report.total_fetched) }}件</li>
+        <li>重複排除後：{{ "{:,}".format(report.deduped_count) }}件</li>
+        <li>重複率：{{ "%.1f"|format(report.duplicate_rate * 100) }}%</li>
+        <li>RSS失敗率：{{ "%.1f"|format(report.rss_failure_rate * 100) }}%</li>
+        <li>平均タイトル文字数：{{ "%.1f"|format(report.avg_title_chars) }}文字</li>
+        <li>平均概要文字数：{{ "%.1f"|format(report.avg_summary_chars) }}文字</li>
+        <li>推定入力トークン：{{ "{:,}".format(report.estimated_input_tokens) }} tokens</li>
+      </ul>
+    </div>
+
+    <div class="summary-column">
+      <h3>【カテゴリ別件数（重複排除後）】</h3>
+      <ul class="summary-list">
+        {% for cat_key, count in report.category_counts.items() %}
+          <li>
+            {% if cat_key in news_categories %}
+              {{ news_categories[cat_key].label }}
+            {% else %}
+              {{ cat_key }}
+            {% endif %}
+            ：{{ count }}件
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <p class="disclaimer-note">{{ report.measurement_note }}</p>
+</section>
+
+<section class="panel">
+  <h2>日次計測データ</h2>
+  {% if report.daily_metrics %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>計測日</th>
+            <th>実測</th>
+            <th>RSS取得</th>
+            <th>重複排除後</th>
+            <th>重複率</th>
+            <th>失敗率</th>
+            <th>平均タイトル</th>
+            <th>平均概要</th>
+            <th>推定入力トークン</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in report.daily_metrics %}
+            <tr>
+              <td>{{ m.metric_date }}</td>
+              <td>
+                {% if m.is_actual_measurement %}
+                  <span class="badge badge-success">実測</span>
+                {% else %}
+                  <span class="badge badge-warn">暫定</span>
+                {% endif %}
+              </td>
+              <td>{{ m.total_fetched }}件</td>
+              <td>{{ m.deduped_count }}件</td>
+              <td>{{ "%.1f"|format(m.duplicate_rate * 100) }}%</td>
+              <td>{{ "%.1f"|format(m.rss_failure_rate * 100) }}%</td>
+              <td>{{ "%.1f"|format(m.avg_title_chars) }}文字</td>
+              <td>{{ "%.1f"|format(m.avg_summary_chars) }}文字</td>
+              <td>{{ "{:,}".format(m.estimated_input_tokens) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>日次計測データがまだありません。「RSS取得量を計測」を実行してください。</p>
+  {% endif %}
+</section>
+{% endblock %}

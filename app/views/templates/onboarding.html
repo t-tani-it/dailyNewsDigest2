@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}初回起動・取得確認 | dailyNewsDigest{% endblock %}
+
+{% block content %}
+<section class="panel onboarding-panel">
+  <h1>初回起動・対象日ニュース取得確認</h1>
+  <p class="lead-text">
+    取得対象日（日本時間 0:00〜翌日 0:00 直前）と興味のあるカテゴリを選択し、RSSの取得可能件数を確認してください。
+    確認前のデータは一時的に扱われ、「はい」を押すまでデータベースへ確定保存されません。
+  </p>
+
+  <form id="onboarding-preview-form" class="form-grid" onsubmit="return false;">
+    <div class="form-group">
+      <label for="onboarding-target-date" class="form-label">1. 取得対象日（日本時間）</label>
+      <input
+        type="date"
+        id="onboarding-target-date"
+        name="target_date"
+        value="{{ today_iso }}"
+        required
+        class="form-input"
+      >
+      <small class="help-text">※公開日時が不明な記事は対象日内と断定しません。</small>
+    </div>
+
+    <div class="form-group">
+      <div class="category-header-row">
+        <span class="form-label">2. ニュースカテゴリ選択（複数選択可・OR条件）</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-onboarding-select-all">
+          全カテゴリを選択
+        </button>
+      </div>
+      <div class="checkbox-grid" id="onboarding-category-list">
+        {% for cat_key, cat_info in news_categories.items() %}
+          {% if cat_key != "unclassified" %}
+          <label class="checkbox-item">
+            <input
+              type="checkbox"
+              name="selected_categories"
+              value="{{ cat_key }}"
+              {% if cat_key in user_setting.selected_categories %}checked{% endif %}
+            >
+            <span>{{ cat_info.label }}（{{ cat_info.group_label }}）</span>
+          </label>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="btn-run-onboarding-preview">
+        RSSから対象日の件数を集計する
+      </button>
+    </div>
+  </form>
+
+  <div id="onboarding-confirm-box" class="confirm-box hidden">
+    <h2>集計結果と注意事項の確認</h2>
+    <input type="hidden" id="onboarding-preview-token" value="">
+
+    <div id="onboarding-range-warning" class="warning-box hidden"></div>
+
+    <div class="summary-grid-compact">
+      <div class="stat-box">
+        <span class="stat-label">RSS取得総数</span>
+        <strong id="stat-total-fetched">0</strong> 件
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">重複排除後の対象記事数</span>
+        <strong id="stat-deduped-count">0</strong> 件
+      </div>
+    </div>
+
+    <h3>カテゴリ別の暫定件数</h3>
+    <ul id="onboarding-category-counts" class="category-count-list"></ul>
+
+    <div class="notice-box">
+      <h3>注意事項（必ずご確認ください）</h3>
+      <ul>
+        {% for notice in onboarding_notices %}
+          <li>{{ notice }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <p class="confirm-question"><strong>取得していいですか？</strong></p>
+    <div class="decision-buttons">
+      <button type="button" class="btn btn-success" data-decision="yes" id="btn-decision-yes">
+        はい（DB保存・AI処理・毎朝自動更新を有効化）
+      </button>
+      <button type="button" class="btn btn-secondary" data-decision="no" id="btn-decision-no">
+        いいえ（保存・AI処理せずタイトルのみプレビュー）
+      </button>
+      <button type="button" class="btn btn-danger" data-decision="cancel" id="btn-decision-cancel">
+        キャンセル（終了して設定画面へ戻る）
+      </button>
+    </div>
+  </div>
+
+  <div id="onboarding-title-preview-box" class="panel hidden">
+    <h2>記事タイトルのプレビュー（DB未保存・AI未実行）</h2>
+    <p class="help-text">「いいえ」が選択されたため、確定保存およびAI処理は行っていません。</p>
+    <ul id="onboarding-title-list" class="title-preview-list"></ul>
+  </div>
+</section>
+{% endblock %}

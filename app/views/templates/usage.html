@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}AI使用量ダッシュボード | dailyNewsDigest{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <div class="panel-header-row">
+    <h1>AI使用量・無料モデル運用ダッシュボード</h1>
+    <a href="/history" class="btn btn-secondary btn-sm">実行履歴を見る</a>
+  </div>
+  <p class="lead-text">
+    実行単位（run_id）のトークン使用量、モデル別呼び出し回数、自動切替履歴、
+    比較対象有料3モデルの単価確認状態を表示します。
+    <strong>比較対象の有料3モデルは参考料金の計算専用であり、API呼び出しは行いません。</strong>
+    トークン数がAPIから返却されなかった場合は 0 ではなく「未計測」と表示します。
+  </p>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="stat-label">本日のAPI呼び出し</span>
+      <span class="stat-value">{{ dashboard.daily_limit_status.today_calls }} / {{ dashboard.daily_limit_status.daily_limit }}回</span>
+      <span class="stat-sub">
+        {% if dashboard.daily_limit_status.can_call %}
+          <span class="badge badge-success">残り {{ dashboard.daily_limit_status.remaining_calls }}回</span>
+        {% else %}
+          <span class="badge badge-warn">上限到達（AI処理は保留）</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">直近ログの呼び出し</span>
+      <span class="stat-value">{{ dashboard.overview.total_calls }}回</span>
+      <span class="stat-sub">成功 {{ dashboard.overview.success_count }} / 失敗 {{ dashboard.overview.failed_count }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">合計トークン（直近ログ）</span>
+      <span class="stat-value">
+        {% if dashboard.overview.total_tokens is not none %}
+          {{ "{:,}".format(dashboard.overview.total_tokens) }}
+        {% else %}
+          未計測
+        {% endif %}
+      </span>
+      <span class="stat-sub">{{ dashboard.overview.measurement_label }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">使用モデル数 / 自動切替</span>
+      <span class="stat-value">{{ dashboard.overview.model_count }}モデル / {{ dashboard.overview.switch_count }}回</span>
+      <span class="stat-sub">自動切替は失敗時に別の無料モデルへ移動した回数です</span>
+    </div>
+  </div>
+
+  <div class="summary-comparison-grid">
+    <div class="summary-column">
+      <h3>【トークン内訳（直近ログ）】</h3>
+      <ul class="summary-list">
+        <li>入力：{% if dashboard.overview.total_input_tokens is not none %}{{ "{:,}".format(dashboard.overview.total_input_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        <li>出力：{% if dashboard.overview.total_output_tokens is not none %}{{ "{:,}".format(dashboard.overview.total_output_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        {% if dashboard.overview.total_reasoning_tokens %}
+          <li>推論内訳：{{ "{:,}".format(dashboard.overview.total_reasoning_tokens) }} tokens（出力内包・二重計上なし）</li>
+        {% endif %}
+        <li>計測済みリクエスト：{{ dashboard.overview.measured_count }}回</li>
+        <li>未計測リクエスト：{{ dashboard.overview.unmeasured_count }}回</li>
+      </ul>
+    </div>
+    <div class="summary-column">
+      <h3>【計測状態の扱い】</h3>
+      <ul class="summary-list">
+        <li>計測済み：APIが入力・出力トークンを返却した呼び出し</li>
+        <li>一部未計測：計測できた分のみ合計し、注意書きを表示</li>
+        <li>未計測：0 tokens と誤表示せず「未計測」と表示</li>
+        <li>既存分析再利用：新規トークン消費 0 として記録</li>
+      </ul>
+    </div>
+    <div class="summary-column">
+      <h3>【データ生成時刻】</h3>
+      <ul class="summary-list">
+        <li>{{ dashboard.generated_at_jst_str }}（Asia/Tokyo）</li>
+        <li>直近ログ上限：{{ dashboard.log_limit }}件</li>
+        <li>直近実行上限：{{ dashboard.run_limit }}件</li>
+      </ul>
+      <p class="disclaimer-note">
+        表示値はローカルDBに保存された利用履歴の集計です。外部への送信は行いません。
+      </p>
+    </div>
+  </div>
+</section>
+
+{% if dashboard.selected_run_usage %}
+<section class="panel">
+  <h2>指定実行の使用量（run_id: {{ dashboard.selected_run_id }}）</h2>
+  <div class="summary-comparison-grid">
+    <div class="summary-column">
+      <h3>【トークン】</h3>
+      <ul class="summary-list">
+        <li>APIリクエスト数：{{ dashboard.selected_run_usage.api_request_count }}回</li>
+        <li>入力：{% if dashboard.selected_run_usage.total_input_tokens is not none %}{{ "{:,}".format(dashboard.selected_run_usage.total_input_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        <li>出力：{% if dashboard.selected_run_usage.total_output_tokens is not none %}{{ "{:,}".format(dashboard.selected_run_usage.total_output_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        <li>合計：{% if dashboard.selected_run_usage.total_tokens is not none %}{{ "{:,}".format(dashboard.selected_run_usage.total_tokens) }} tokens{% else %}未計測{% endif %}</li>
+        <li>状態：{{ dashboard.selected_run_usage.usage_measurement_status }}</li>
+      </ul>
+    </div>
+    <div class="summary-column">
+      <h3>【使用モデル】</h3>
+      <ul class="summary-list">
+        <li>プロバイダー：{{ dashboard.selected_run_usage.used_provider or "未使用 / 未計測" }}</li>
+        <li>モデル：{{ dashboard.selected_run_usage.used_model_id or "未使用 / 未計測" }}</li>
+      </ul>
+    </div>
+    <div class="summary-column">
+      <h3>【自動切替履歴】</h3>
+      {% if dashboard.selected_run_usage.switch_events %}
+        <ul class="summary-list">
+          {% for ev in dashboard.selected_run_usage.switch_events %}
+            <li>{{ ev.from_model }} &rarr; {{ ev.to_model }}（{{ ev.reason }} / {{ ev.purpose }}）</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted">自動切替はありません。</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>モデル別使用量（直近ログ）</h2>
+  {% if dashboard.model_breakdown %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>プロバイダー</th>
+            <th>モデルID</th>
+            <th>呼び出し</th>
+            <th>成功 / 失敗</th>
+            <th>入力 tokens</th>
+            <th>出力 tokens</th>
+            <th>合計 tokens</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in dashboard.model_breakdown %}
+            <tr>
+              <td>{{ m.provider }}</td>
+              <td><code>{{ m.model_id }}</code></td>
+              <td>{{ m.call_count }}回</td>
+              <td>{{ m.success_count }} / {{ m.failed_count }}</td>
+              <td>
+                {% if m.measured_count %}{{ "{:,}".format(m.input_tokens) }}{% else %}<span class="text-muted">未計測</span>{% endif %}
+              </td>
+              <td>
+                {% if m.measured_count %}{{ "{:,}".format(m.output_tokens) }}{% else %}<span class="text-muted">未計測</span>{% endif %}
+              </td>
+              <td>
+                {% if m.measured_count %}{{ "{:,}".format(m.total_tokens) }}{% else %}<span class="text-muted">未計測</span>{% endif %}
+              </td>
+              <td>
+                {% if m.has_unmeasured %}
+                  <span class="badge badge-warn">一部未計測</span>
+                {% else %}
+                  <span class="badge badge-success">計測済み</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>LLMの呼び出し履歴がまだありません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>最近の実行（run_id 単位）</h2>
+  {% if dashboard.recent_run_usages %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>run_id</th>
+            <th>実行日時（JST）</th>
+            <th>実行方法</th>
+            <th>状態</th>
+            <th>AI分類 / 要約</th>
+            <th>API呼び出し</th>
+            <th>入力 / 出力 / 合計 tokens</th>
+            <th>使用モデル</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in dashboard.recent_run_usages %}
+            <tr>
+              <td><a href="/usage?run_id={{ r.run_id }}"><code>{{ r.run_id[:8] }}...</code></a></td>
+              <td>{{ r.executed_at_jst_str }}</td>
+              <td>{{ run_type_labels.get(r.run_type, r.run_type) }}</td>
+              <td>{{ run_status_labels.get(r.status, r.status) }}</td>
+              <td>{{ r.ai_classified_count }} / {{ r.ai_summarized_count }}件</td>
+              <td>{{ r.api_request_count }}回</td>
+              <td>
+                {% if r.total_tokens is not none %}
+                  {{ "{:,}".format(r.total_input_tokens) }} / {{ "{:,}".format(r.total_output_tokens) }} / {{ "{:,}".format(r.total_tokens) }}
+                {% else %}
+                  <span class="text-muted">未計測</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.used_model_id %}
+                  {{ r.used_provider }}<br><small>{{ r.used_model_id }}</small>
+                {% else %}
+                  <span class="text-muted">未使用 / 未計測</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>実行履歴がまだありません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>自動モデル切替履歴</h2>
+  {% if dashboard.switch_history %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>日時（JST）</th>
+            <th>run_id</th>
+            <th>用途</th>
+            <th>切替元</th>
+            <th>切替先</th>
+            <th>理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in dashboard.switch_history %}
+            <tr>
+              <td>{{ s.called_at_jst_str }}</td>
+              <td><code>{{ s.run_id[:8] }}...</code></td>
+              <td>{{ s.purpose }}</td>
+              <td>{{ s.from_model }}</td>
+              <td>{{ s.to_model }}</td>
+              <td>{{ s.reason }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>自動切替は発生していません。</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>比較対象有料3モデルの単価確認状態</h2>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>モデル</th>
+          <th>プロバイダー</th>
+          <th>入力単価（1M tokens）</th>
+          <th>出力単価（1M tokens）</th>
+          <th>確認状態</th>
+          <th>確認日時（JST）</th>
+          <th>取得元</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in dashboard.price_snapshots %}
+          <tr>
+            <td><strong>{{ p.model_name }}</strong><br><small><code>{{ p.model_id }}</code></small></td>
+            <td>{{ p.provider }}</td>
+            <td>{{ p.input_price_display }}</td>
+            <td>{{ p.output_price_display }}</td>
+            <td>
+              {% if p.is_verified %}
+                <span class="badge badge-success">{{ p.status_label }}</span>
+              {% else %}
+                <span class="badge badge-warn">{{ p.status_label }}</span>
+              {% endif %}
+            </td>
+            <td>{{ p.verified_at_str }}</td>
+            <td>
+              {% if p.source_url %}
+                <a href="{{ p.source_url }}" target="_blank" rel="noopener noreferrer">公式価格</a>
+              {% else %}
+                <span class="text-muted">未取得</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="disclaimer-note">{{ dashboard.disclaimer }}</p>
+</section>
+
+<section class="panel">
+  <h2>直近のAPI呼び出しログ</h2>
+  {% if dashboard.recent_logs %}
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>日時（JST）</th>
+            <th>run_id</th>
+            <th>用途</th>
+            <th>プロバイダー / モデル</th>
+            <th>入力 / 出力 / 推論 / 合計</th>
+            <th>状態</th>
+            <th>HTTP</th>
+            <th>切替 / エラー</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in dashboard.recent_logs %}
+            <tr>
+              <td>{{ log.called_at_jst_str }}</td>
+              <td><code>{{ log.run_id[:8] }}...</code></td>
+              <td>{{ log.purpose }}</td>
+              <td>{{ log.provider }}<br><small>{{ log.model_id }}</small></td>
+              <td>
+                {% if log.total_tokens is not none %}
+                  {{ "{:,}".format(log.input_tokens) }} / {{ "{:,}".format(log.output_tokens) }} /
+                  {{ "{:,}".format(log.reasoning_tokens or 0) }} / {{ "{:,}".format(log.total_tokens) }}
+                {% else %}
+                  <span class="text-muted">未計測</span>
+                {% endif %}
+              </td>
+              <td>{{ log.usage_status }}</td>
+              <td>{{ log.http_status if log.http_status is not none else "-" }}</td>
+              <td>
+                {% if log.switched_from_model %}
+                  <span class="badge badge-info">{{ log.switched_from_model }} から切替</span>
+                {% endif %}
+                {% if log.error_message %}
+                  <small class="text-muted">{{ log.error_message[:80] }}</small>
+                {% endif %}
+                {% if not log.switched_from_model and not log.error_message %}-{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>API呼び出しログがまだありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

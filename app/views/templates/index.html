@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}重要ニュース一覧 | dailyNewsDigest{% endblock %}
+
+{% block content %}
+<section class="panel top-status-bar">
+  <div class="top-meta">
+    <span><strong>今日の日付：</strong>{{ today_jst_str }}</span>
+    <span><strong>最終更新日時：</strong>{{ last_updated_jst_str }}</span>
+    <span><strong>処理状態：</strong>{{ summary.status_label }}</span>
+  </div>
+  <div class="top-actions">
+    {% if summary.status == "ai_pending" %}
+      <button
+        type="button"
+        class="btn btn-secondary"
+        id="btn-retry-pending-ai"
+        data-run-id="{{ summary.run_id }}"
+      >
+        保留中のAI処理を再開
+      </button>
+    {% endif %}
+    <button type="button" class="btn btn-primary" id="btn-manual-refresh">
+      手動ニュース更新
+    </button>
+  </div>
+</section>
+
+<!-- 基本画面に常時表示する LLMモデル選択欄（指示書 §13, §17.1） -->
+<section class="panel llm-control-panel" aria-label="LLMモデル選択・無料管理">
+  <div class="panel-header-row">
+    <h2>LLMモデル選択（無料利用確認済みモデル限定）</h2>
+    <div class="filter-inline-controls">
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-models">
+        無料モデル一覧を更新
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-save-llm-selection">
+        LLM選択を保存
+      </button>
+    </div>
+  </div>
+
+  <div class="llm-grid">
+    <div class="form-group">
+      <label for="select-llm-mode" class="form-label">選択モード</label>
+      <select id="select-llm-mode" class="form-select">
+        <option value="auto" {% if user_setting.selection_mode == "auto" %}selected{% endif %}>1. 自動選択（初期値）</option>
+        <option value="gemini" {% if user_setting.selection_mode == "gemini" %}selected{% endif %}>2. Geminiからモデル選択</option>
+        <option value="openrouter" {% if user_setting.selection_mode == "openrouter" %}selected{% endif %}>3. OpenRouterからモデル選択</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="select-preferred-model" class="form-label">利用可能な無料モデル一覧</label>
+      <select id="select-preferred-model" class="form-select">
+        <option value="">自動（利用可能な無料モデルを優先）</option>
+        {% for m in free_models %}
+          <option
+            value="{{ m.model_id }}"
+            data-provider="{{ m.provider }}"
+            {% if user_setting.preferred_model_id == m.model_id %}selected{% endif %}
+          >
+            [{{ m.provider }}] {{ m.model_name }} (無料確認:{{ m.free_tier_status }} / 状態:{{ m.availability_status }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group toggle-group">
+      <label class="checkbox-item">
+        <input type="checkbox" id="toggle-llm-enabled" {% if user_setting.llm_enabled %}checked{% endif %}>
+        <span>LLM機能 ON/OFF</span>
+      </label>
+      <label class="checkbox-item">
+        <input type="checkbox" id="toggle-auto-switch" {% if user_setting.auto_switch_enabled %}checked{% endif %}>
+        <span>自動モデル切替 ON/OFF</span>
+      </label>
+      <div class="used-model-tag">
+        実際に使用されたモデル：<strong>{{ summary.used_provider }} / {{ summary.used_model }}</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- カテゴリ・表示件数（1〜15件）・並び替えコントロール（指示書 §8, §17.1） -->
+<section class="panel filter-control-panel">
+  <div class="panel-header-row">
+    <h2>カテゴリ選択・表示設定</h2>
+    <div class="filter-inline-controls">
+      <label for="select-display-count">表示件数（1〜15件）：</label>
+      <select id="select-display-count" class="form-select form-select-sm">
+        {% for n in range(1, 16) %}
+          <option value="{{ n }}" {% if active_display_count == n %}selected{% endif %}>{{ n }}件</option>
+        {% endfor %}
+      </select>
+
+      <label for="select-sort-order">並び替え：</label>
+      <select id="select-sort-order" class="form-select form-select-sm">
+        <option value="importance" {% if active_sort_order == "importance" %}selected{% endif %}>重要度順</option>
+        <option value="latest" {% if active_sort_order == "latest" %}selected{% endif %}>最新順</option>
+      </select>
+
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-select-all-categories">
+        全カテゴリ選択
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-apply-recategorize">
+        保存済み記事から再選別
+      </button>
+    </div>
+  </div>
+
+  <div class="checkbox-grid" id="main-category-list">
+    {% for cat_key, cat_info in news_categories.items() %}
+      {% if cat_key != "unclassified" %}
+      <label class="checkbox-item">
+        <input
+          type="checkbox"
+          name="main_selected_categories"
+          value="{{ cat_key }}"
+          {% if cat_key in user_setting.selected_categories %}checked{% endif %}
+        >
+        <span>{{ cat_info.label }}</span>
+      </label>
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+<!-- 1実行単位の「AI処理・使用量サマリー」（ページ内に1つだけ表示：指示書 §17.3, §17.4, §17.5） -->
+<section id="ai-usage-summary" class="panel summary-panel" aria-label="AI処理・使用量サマリー">
+  <details class="summary-collapsible" open>
+    <summary class="summary-heading">
+      【ニュース取得・AI処理結果サマリー】（実行ID: {{ summary.run_id }}）
+    </summary>
+    <div class="summary-comparison-grid">
+      <!-- 1. 実行情報 -->
+      <div class="summary-column">
+        <h3>【実行情報】</h3>
+        <ul class="summary-list">
+          <li>実行日時：{{ summary.executed_at_jst_str }}</li>
+          <li>実行方法：{{ summary.run_type_label }}</li>
+          <li>RSS取得記事数：{{ summary.fetched_count }}件</li>
+          <li>重複排除後の記事数：{{ summary.deduped_count }}件</li>
+          <li>AI分類対象：{{ summary.ai_classified_count }}件</li>
+          <li>AI要約対象：{{ summary.ai_summarized_count }}件</li>
+          <li>最終表示：{{ summary.displayed_count }}件</li>
+          <li>実行状態：{{ summary.status_label }}
+            {% if summary.reused_analysis %}
+              <span class="badge badge-info">保存済み分析を再利用（新規トークン消費0）</span>
+            {% endif %}
+          </li>
+        </ul>
+      </div>
+
+      <!-- 2. AI処理・トークン使用量 -->
+      <div class="summary-column">
+        <h3>【トークン使用量】</h3>
+        <ul class="summary-list">
+          <li>使用プロバイダー：{{ summary.used_provider }}</li>
+          <li>使用モデル：{{ summary.used_model }}</li>
+          <li>APIリクエスト数：{{ summary.api_request_count }}回</li>
+          <li>入力：{% if summary.total_input_tokens is not none %}{{ "{:,}".format(summary.total_input_tokens) }} tokens{% else %}未計測{% endif %}</li>
+          <li>出力：{% if summary.total_output_tokens is not none %}{{ "{:,}".format(summary.total_output_tokens) }} tokens{% else %}未計測{% endif %}</li>
+          {% if summary.total_reasoning_tokens %}
+            <li>推論内訳：{{ "{:,}".format(summary.total_reasoning_tokens) }} tokens（出力内包・二重計上なし）</li>
+          {% endif %}
+          <li>合計：{% if summary.total_tokens is not none %}{{ "{:,}".format(summary.total_tokens) }} tokens{% else %}未計測{% endif %}</li>
+          <li>計測状態：{{ summary.usage_measurement_status }}</li>
+        </ul>
+      </div>
+
+      <!-- 3. 有料モデルを使用した場合の参考料金 -->
+      <div class="summary-column">
+        <h3>【有料モデルを使用した場合の参考料金】</h3>
+        <ul class="summary-list">
+          {% for est in summary.paid_model_estimates %}
+            <li>
+              <strong>{{ est.model_name }}</strong>：{{ est.display_cost }}
+              <small class="help-text">（確認日時: {{ est.verified_at_str }}）</small>
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="disclaimer-note">{{ summary.disclaimer }}</p>
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- 重要ニュース一覧（最大15記事、ニュースカード内にはトークン量・料金を表示しない：指示書 §17.2） -->
+<section class="news-list-section" aria-label="重要ニュース一覧">
+  <h2>重要ニュース一覧（{{ cards | length }}件表示 / 最大15件）</h2>
+
+  {% if cards %}
+    <div class="news-cards-grid" id="news-cards-container">
+      {% for card in cards %}
+        <article class="news-card {% if card.is_read %}is-read{% endif %}" data-article-id="{{ card.id }}">
+          <div class="card-meta-top">
+            <span class="badge badge-category">{{ card.category_label }}</span>
+            <span class="badge badge-importance">重要度: {{ card.importance_score }}</span>
+            <span class="card-source">出典: {{ card.source_name }}</span>
+            {% if card.related_sources_count > 1 %}
+              <span class="badge badge-related">関連報道 {{ card.related_sources_count }}件</span>
+            {% endif %}
+          </div>
+
+          <h3 class="card-title">
+            <a href="{{ card.url }}" target="_blank" rel="noopener noreferrer">{{ card.title }}</a>
+          </h3>
+
+          <div class="card-timestamps">
+            <span>公開日時: {{ card.published_at_jst_str }}</span>
+            {% if card.updated_at_jst_str %}
+              <span>更新日時: {{ card.updated_at_jst_str }}</span>
+            {% endif %}
+          </div>
+
+          <div class="card-summary-block">
+            <p class="card-summary"><strong>要約：</strong>{{ card.summary_ja }}</p>
+            <p class="card-why"><strong>なぜ重要か：</strong>{{ card.why_important }}</p>
+          </div>
+
+          <div class="card-footer">
+            <a href="{{ card.url }}" target="_blank" rel="noopener noreferrer" class="card-link">
+              元記事を読む &rarr;
+            </a>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm btn-toggle-read"
+              data-article-id="{{ card.id }}"
+              data-is-read="{{ 'true' if card.is_read else 'false' }}"
+            >
+              {{ "既読（未読に戻す）" if card.is_read else "未読（既読にする）" }}
+            </button>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="panel empty-state">
+      <p>現在表示できるニュース記事がありません。「手動ニュース更新」または「初回/日付取得」からRSSを取得してください。</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

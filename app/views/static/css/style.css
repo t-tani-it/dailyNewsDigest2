@@ -1,0 +1,516 @@
+/* =============================================================================
+ * dailyNewsDigest2 - style.css
+ * -----------------------------------------------------------------------------
+ * 目的（Why）: PC・スマートフォンの双方で見やすいレスポンシブデザインを提供する（指示書 §17）。
+ * 仕様（What）:
+ *   - PC表示: AI処理・使用量サマリーを3カラム横並び比較表示（§17.5）
+ *   - スマホ表示: 縦並びおよび details/summary による折りたたみ対応（§17.5）
+ * 変更履歴（Change Log）:
+ *   2026-11-02 - 初版作成（Step 2-3）
+ * ============================================================================= */
+
+:root {
+  --bg-page: #f4f6f9;
+  --bg-panel: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --success: #15803d;
+  --danger: #b91c1c;
+  --border: #e2e8f0;
+  --badge-bg: #eff6ff;
+  --badge-text: #1e3a8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.site-header {
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 12px 0;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-title {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.brand-badge {
+  background-color: #065f46;
+  color: #d1fae5;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.main-nav {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  color: #e2e8f0;
+  text-decoration: none;
+  font-size: 0.92rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.nav-link:hover {
+  background-color: #1e293b;
+  color: #ffffff;
+}
+
+.main-content {
+  padding-top: 20px;
+  padding-bottom: 40px;
+}
+
+.panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.panel h1,
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.panel-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.top-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.top-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 0.95rem;
+}
+
+/* --- AI処理・使用量サマリー（PCでは横並び比較、スマホでは縦並び：指示書 §17.5） --- */
+.summary-heading {
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.summary-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.summary-column {
+  background-color: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.summary-column h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.summary-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.9rem;
+}
+
+.disclaimer-note {
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+
+/* --- ニュースカード（記事単位情報のみ：指示書 §17.2） --- */
+.news-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.news-card {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+
+.news-card.is-read {
+  opacity: 0.72;
+  border-left-color: #94a3b8;
+}
+
+.card-meta-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.card-title {
+  margin: 4px 0 8px;
+  font-size: 1.08rem;
+}
+
+.card-title a {
+  color: var(--text-main);
+  text-decoration: none;
+}
+
+.card-title a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.card-timestamps {
+  display: flex;
+  gap: 14px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.card-summary-block {
+  background-color: #f8fafc;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 0.92rem;
+}
+
+.card-summary,
+.card-why {
+  margin: 4px 0;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.card-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+/* --- フォーム・ボタン・バッジ --- */
+.llm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1.2fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.92rem;
+}
+
+.form-select-sm {
+  width: auto;
+  padding: 4px 8px;
+}
+
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 0.82rem;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.btn-success {
+  background-color: var(--success);
+  color: #ffffff;
+}
+
+.btn-danger {
+  background-color: var(--danger);
+  color: #ffffff;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: var(--badge-bg);
+  color: var(--badge-text);
+}
+
+.badge-importance {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-info {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
+.badge-success {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.badge-warn {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.notice-box,
+.warning-box {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+.decision-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.status-banner {
+  background-color: #eff6ff;
+  border: 1px solid #93c5fd;
+  color: #1e3a8a;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 16px 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* --- 使用量ダッシュボード（数値カード・一覧補助） --- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.stat-card {
+  background-color: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.stat-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.active-row {
+  background-color: #eff6ff;
+}
+
+.lead-text {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.help-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.url-code {
+  word-break: break-all;
+}
+
+/* --- スマートフォン対応（縦並び・折りたたみ：指示書 §17.5） --- */
+@media (max-width: 768px) {
+  .summary-comparison-grid,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .llm-grid,
+  .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .decision-buttons .btn {
+    width: 100%;
+    text-align: center;
+  }
+}
