@@ -60,9 +60,9 @@
 | 2026-11-03 | Step 5-3 | 要件32項目のテスト確認表、README、最終ハンドオーバー、Git初期化・分割コミット・GitHub公開を実施 |
 
 ### 未実施
-- Docker Desktop導入後のPostgreSQL 16実接続・`alembic upgrade head`の実機確認
-- 実際のGemini / OpenRouter無料APIを用いたレート制限・無料枠挙動の確認
-- 同一Wi-Fi内スマートフォンからの実機表示確認
+- Docker Desktop導入後のPostgreSQL 16実接続・`alembic upgrade head`の実機確認（Docker CLI未導入）
+- 実際のGemini / OpenRouter無料APIを用いたレート制限・無料枠挙動の確認（APIキー未設定）
+- 同一Wi-Fi内スマートフォンからの実機表示確認（PCの同一ホストからLAN IP経由の主要画面表示は確認済み）
 
 ---
 
@@ -146,6 +146,13 @@
   - 公開禁止情報スキャンを実施。検出された1件はログマスク用正規表現（`app/core/logging.py`）のみで、実際のローカルパス・APIキー・個人IDではないことを確認。
   - `gh` CLI（HTTPS認証）でpublicリポジトリを作成し、`main` をpush。
 
+### 残確認事項の実行結果（2026-11-03）
+- **Docker / PostgreSQL 16**：`docker` および `docker compose` は未導入。`compose.yaml` のPostgreSQL 16起動は未実施。
+- **PostgreSQL 18 一時クラスタ**：既存のPostgreSQL 18サービス（ポート5432、`scram-sha-256`）は認証情報不足で接続不可であったため、インストール済みバイナリで一時クラスタ（ポート55432、`trust`認証、`autovacuum=off`）を作成した。`alembic upgrade head` を実行し、`alembic_version` を含む11テーブルの作成を確認。FastAPIをPostgreSQL接続で起動し、`/health` の `db_connected=true` と、`/`・`/usage`・`/metrics`・`/history`・`/settings` のHTTP 200を確認した。検証後に一時クラスタとデータを削除した。
+- **Alembic設定**：Windows日本語ロケール（cp932）で `alembic.ini` の `UnicodeDecodeError` が発生するため、ヘッダーコメントをASCIIのみに変更した。`alembic upgrade head --sql` のオフラインSQL生成と、PostgreSQL 18一時クラスタへのオンライン適用が成功した。
+- **LLM API**：`.env` が無く、`GEMINI_API_KEY`・`OPENROUTER_API_KEY`・各ENABLEDフラグは未設定。実API呼び出し、無料枠・レート制限、自動切替、使用量記録は未検証。OpenRouterの公開モデル一覧APIはHTTP 200（451モデル、`:free` 14件、`openrouter/free` あり）を確認。Gemini APIはAPIキー無しでHTTP 403（未登録呼び出し拒否）を確認し、到達性のみ確認した。
+- **スマートフォン**：PCのLAN IP経由で主要画面がHTTP 200であることを同一ホストから確認。実機スマートフォンからのアクセスは未実施。Windows FirewallはPublicプロファイルで、開発用 `.venv` Pythonの受信許可規則が無いため、実機接続にはTCP 8000の受信許可が必要な場合がある。
+
 ### 既知の注意点（要対応・任意）
 - `.venv` は Python 3.11.15 で作成済みだが、作成に用いた `python` が PATH 上の別プロジェクトの venv を指していたため、`.venv/pyvenv.cfg` の `home` がその環境を参照している。パッケージは完全に独立しているが、参照元を削除すると `.venv` が壊れる。
 - 対応案：Python 3.11 をシステムへ導入したうえで、プロジェクト直下で以下を実行して再作成する。
@@ -155,13 +162,16 @@
   pip install -r requirements.txt
   ```
 
+- `alembic.ini` はWindows cp932対策としてASCIIのみで維持する。日本語コメントを追加すると `UnicodeDecodeError` が再発する。
+- PostgreSQL 18の一時クラスタでは、Windowsの共有メモリ確保エラー（`error code 487` / `0xC0000142`）により接続が不安定になる事象を確認した。短時間の検証は `autovacuum=off` で成功したが、長時間運用の安定性は未確認。標準構成はDocker ComposeのPostgreSQL 16とする。
+
 ---
 
 ## 4. 残タスク
-- Docker Desktop導入後にPostgreSQL 16への接続と `alembic upgrade head` を確認する。
+- Docker Desktop導入後にPostgreSQL 16への接続と `alembic upgrade head` を確認する（PostgreSQL 18一時クラスタでのオンライン適用は確認済み）。
 - Phase 2の2日分実測を確定するため、別日に通常更新または `POST /api/metrics/measure` を実行する。
-- 実際のGemini / OpenRouter無料APIを設定し、無料枠・レート制限・自動切替の実挙動を確認する。
-- 同一Wi-Fi内のスマートフォンから実機表示を確認する。
+- 実際のGemini / OpenRouter無料APIを設定し、無料枠・レート制限・自動切替の実挙動を確認する（OpenRouter公開モデル一覧とGemini APIの到達性は確認済み）。
+- 同一Wi-Fi内のスマートフォンから実機表示を確認する（PCのLAN IP経由の同一ホスト表示は確認済み）。
 - 初期版は認証機能を持たないため、インターネットへ公開しない。公開する場合は認証・HTTPS・CSRF対策等を追加する。
 
 ---
@@ -217,3 +227,4 @@ gh repo create dailyNewsDigest2 --public --source . --remote origin --push
 - 2026-11-02: Step 2-5（Phase 1テスト）、Step 3-1（計測ロジック）、Step 3-2（計測画面/API）完了を反映
 - 2026-11-03: Step 4-1〜4-5（Phase 3完了）および Step 5-1（既存分析再利用・保留再開）完了を反映
 - 2026-11-03: Step 5-2（使用量ダッシュボード・履歴拡充）および Step 5-3（32項目テスト確認・README・GitHub反映）完了を反映
+- 2026-11-03: 残確認事項（PostgreSQL 18一時クラスタ、`alembic.ini` ASCII化、公開モデル一覧接続、LAN IPスモーク）の結果を反映

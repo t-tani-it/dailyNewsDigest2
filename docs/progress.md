@@ -13,7 +13,7 @@
 - フェーズ完了時に `docs/handover.md` を更新する。
 
 ## 現在地
-- 現在のサブステップ：**Step 5-3 完了 / Phase 1〜4 全サブステップ完了**
+- 現在のサブステップ：**Step 5-3 完了 / Phase 1〜4 全サブステップ完了 / 残確認事項を実行済み（外部環境待ちあり）**
 - 最終更新日：2026-11-03
 
 ---
@@ -84,6 +84,16 @@
   - 内容：要件32項目とテストの対応表、PowerShell/cmd両対応のセットアップ・起動手順、無料LLMポリシー、API一覧、既知の制約、最終ハンドオーバー
   - GitHub：`main` ブランチで論理的な複数コミットに分割し、publicリポジトリへpush
   - 検証：`pytest` 113件通過、`ruff check app alembic tests` エラー0件、32/32項目確認済み
+
+## 残確認事項の実行記録（2026-11-03）
+- [x] PostgreSQL 18の一時クラスタ（ポート55432、trust認証）で `alembic upgrade head` を実行し、`alembic_version` を含む11テーブルの作成を確認。
+- [x] PostgreSQL接続でFastAPIを起動し、`/health` の `db_connected=true`、主要画面（`/`、`/usage`、`/metrics`、`/history`、`/settings`）のHTTP 200を確認。
+- [x] `alembic.ini` のcp932 `UnicodeDecodeError` をASCII化で修正し、`alembic upgrade head --sql` のオフラインSQL生成とオンライン適用を確認。
+- [x] OpenRouter公開モデル一覧APIのHTTP 200、`:free` 14件、`openrouter/free` の存在を確認。
+- [x] Gemini APIの到達性（APIキー無しでHTTP 403）を確認。
+- [ ] Docker ComposeによるPostgreSQL 16の起動（Docker CLI未導入）。
+- [ ] 実際のGemini / OpenRouter API呼び出し（APIキー未設定）。
+- [ ] 同一Wi-Fi内の実機スマートフォンからの表示（PCのLAN IP経由の同一ホストアクセスはHTTP 200、Firewall設定待ち）。
 
 ---
 
@@ -217,7 +227,9 @@
 
 ## 未完了・注意事項
 - Gitリポジトリは初期化済み。`main` ブランチで論理的な複数コミットに分割し、publicリポジトリへpush済み。
-- Docker CLI 未導入のため、PostgreSQL 16 の実接続・Alembic マイグレーション実行は未検証。
+- Docker CLI 未導入のため、PostgreSQL 16 の実接続・Alembic マイグレーション実行は未検証。PostgreSQL 18の一時クラスタでのオンライン適用は確認済み。
 - Phase 2 の実測は「実行した日」のみ記録される。2日分の実測を確定するには、別日に `POST /api/metrics/measure` または通常更新を実行する必要がある。
-- 実際のGemini / OpenRouter無料APIのレート制限・無料枠挙動、同一Wi-Fi内スマートフォンからの実機表示は未確認。
+- 実際のGemini / OpenRouter無料APIのレート制限・無料枠挙動は未確認。OpenRouter公開モデル一覧とGemini APIの到達性は確認済み。`.env`にAPIキーを設定して実呼び出しを確認する必要がある。
+- 同一Wi-Fi内スマートフォンからの実機表示は未確認。PCのLAN IP経由の同一ホストアクセスは主要画面HTTP 200。Windows Firewallの受信許可（TCP 8000、同一サブネット限定）が必要な場合がある。
+- `alembic.ini` はWindows cp932対策としてASCIIのみで維持する。
 - 初期版は認証機能を持たないため、インターネットへ公開しないこと。

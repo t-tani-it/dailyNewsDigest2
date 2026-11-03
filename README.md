@@ -317,7 +317,9 @@ ruff check app alembic tests
 
 ## 11. 既知の制約・未検証事項
 
-- Docker CLIが開発環境に無かったため、`compose.yaml` の実起動、PostgreSQL 16への実接続、`alembic upgrade head` は未検証です。Docker Desktop導入後に確認してください。
+- Docker CLIが開発環境に無かったため、`compose.yaml` の実起動とPostgreSQL 16への実接続は未検証です。Docker Desktop導入後に確認してください。PostgreSQL 18の一時クラスタでは`alembic upgrade head`と主要画面の動作を確認済みです。
+- 実際のGemini / OpenRouter無料APIは、`.env`にAPIキーを設定するまで未検証です。OpenRouterの公開モデル一覧とGemini APIの到達性は確認済みです。
+- 同一Wi-Fi内の実機スマートフォンからの表示は未確認です。PCのLAN IP経由では主要画面がHTTP 200でした。Windows Firewallの受信許可（TCP 8000、同一サブネット限定）が必要な場合があります。
 - Phase 2の実測は実行した日のみ記録されます。2日分の実測を確定するには、別日に通常更新または `POST /api/metrics/measure` を実行してください。
 - RSS取得元の利用条件は、初期候補について確認済みの状態で登録していますが、運用前に各サイトの最新の利用規約を確認してください。
 - モデルの存在・無料枠・料金は恒久的な前提ではありません。公式情報で確認できない場合は「要確認」「算出不可」と表示します。

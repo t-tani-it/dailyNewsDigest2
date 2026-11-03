@@ -68,16 +68,24 @@
 | `tests/test_usage_and_pricing.py` | run_idトークン集計、推論二重計上防止、参考料金、小額表示 |
 | `tests/test_usage_dashboard.py` | 使用量ダッシュボード、履歴画面の未計測表示、参考単価、API/画面 |
 
-## 5. 未確認事項
+## 5. 実環境での追加検証（2026-11-03）
+
+- PostgreSQL 18の一時クラスタ（ポート55432、`trust`認証）で `alembic upgrade head` を実行し、`alembic_version` を含む11テーブルの作成を確認。
+- FastAPIをPostgreSQL接続で起動し、`/health` の `db_connected=true`、`/`、`/usage`、`/metrics`、`/history`、`/settings` のHTTP 200を確認。
+- OpenRouter公開モデル一覧APIのHTTP 200、無料識別モデル（`:free` 14件、`openrouter/free`）の存在を確認。
+- Gemini APIの到達性（APIキー無しでHTTP 403）を確認。
+- `alembic.ini` のcp932 `UnicodeDecodeError` をASCII化で修正し、オフラインSQL生成とオンライン適用を確認。
+
+## 6. 未確認事項（実環境）
 
 以下は自動テストの対象外であり、実環境での確認が必要である。
 
 - Docker ComposeによるPostgreSQL 16の起動
-- PostgreSQLへのAlembicマイグレーション適用（`alembic upgrade head`）
-- 実際のGemini API / OpenRouter APIを使った無料枠・レート制限の挙動
+- 実際のGemini API / OpenRouter APIを使った無料枠・レート制限の挙動（APIキー未設定）
 - 実際のRSS配信元の利用規約・配信仕様の変動
-- 同一Wi-Fi内のスマートフォンからの実機表示
+- 同一Wi-Fi内のスマートフォンからの実機表示（PCのLAN IP経由の同一ホストアクセスはHTTP 200）
 
-## 6. 変更履歴
+## 7. 変更履歴
 
 - 2026-11-03：初版作成（Step 5-3）。32項目の対応表と113テストの結果を記録。
+- 2026-11-03：実環境での追加検証（PostgreSQL 18一時クラスタ、Alembic、公開モデル一覧、LAN IPスモーク）を追記。
