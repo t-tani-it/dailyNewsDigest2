@@ -59,7 +59,7 @@ SENSITIVE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         ),
         r"\1[REDACTED]",
     ),
-    # Windows のユーザーローカルパス（例: C:\Users\<username>\...）
+    # Windows のユーザーフォルダ配下の絶対パス（例: ドライブ名から始まるユーザーパス）
     (
         re.compile(r"(?i)[a-z]:\\Users\\[^\\\s'\"<>|]+"),
         r"[REDACTED_USER_PATH]",
