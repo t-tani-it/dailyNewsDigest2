@@ -1,0 +1,69 @@
+# =============================================================================
+# dailyNewsDigest2 - .gitignore
+# -----------------------------------------------------------------------------
+# 目的（Why）: Git管理対象から除外すべきファイルを定義し、公開禁止情報・
+#              環境依存ファイル・生成物の混入を防止する。
+# 注意（Caution）: `.env` は絶対にコミットしない（APIキー等を含むため）。
+# 変更履歴（Change Log）:
+#   2026-11-02 - 初版作成（Step 1-1）
+# =============================================================================
+
+# --- 仮想環境（絶対パスを含むため除外） ---
+.venv/
+venv/
+env/
+
+# --- 環境変数・機密情報 ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Python 生成物 ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- テスト・Lint キャッシュ ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# --- IDE / エディタ ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---
+Thumbs.db
+desktop.ini
+
+# --- ログ・一時ファイル ---
+*.log
+logs/
+tmp/
+temp/
+
+# --- DB ローカルファイル（SQLite フォールバック用） ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- 計測レポート出力（個人環境の実測結果） ---
+reports/*.json
+reports/*.csv
+
+# --- OpenCode ローカル設定 ---
+.opencode/

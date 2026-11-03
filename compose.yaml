@@ -1,0 +1,76 @@
+# =============================================================================
+# dailyNewsDigest2 - compose.yaml
+# -----------------------------------------------------------------------------
+# 目的（Why）: PostgreSQL とアプリ（Web/スケジューラ）を一括起動できるようにする。
+# 仕様（What）:
+#   - db     : PostgreSQL 16（データは named volume で永続化）
+#   - app    : FastAPI（Webプロセス）
+#   - worker : 定期実行・補完取得（Webプロセスと分離）
+# 注意（Caution）:
+#   - 認証情報は .env から読み込む（本ファイルに直書きしない）
+#   - 初期版は個人利用・ローカルネットワーク前提。外部公開しないこと。
+# 変更履歴（Change Log）:
+#   2026-11-02 - 初版作成（Step 1-2）
+# =============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dailynewsdigest2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-digest}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_only}
+      POSTGRES_DB: ${POSTGRES_DB:-digest}
+      TZ: ${APP_TIMEZONE:-Asia/Tokyo}
+    ports:
+      # ローカルからのみ接続可能（外部公開しない）
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-digest} -d ${POSTGRES_DB:-digest}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dailynewsdigest2-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # コンテナ内からは db サービス名で接続する
+      POSTGRES_HOST: db
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-digest}:${POSTGRES_PASSWORD:-change_me_local_only}@db:5432/${POSTGRES_DB:-digest}
+    ports:
+      # 同一Wi-Fi内のスマートフォンから閲覧できるよう 0.0.0.0 で公開
+      - "${PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dailynewsdigest2-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-digest}:${POSTGRES_PASSWORD:-change_me_local_only}@db:5432/${POSTGRES_DB:-digest}
+    depends_on:
+      db:
+        condition: service_healthy
+    # Webプロセスと定期処理を分離する（二重実行はDBロックで防止）
+    command: python -m app.jobs.scheduler_worker
+
+volumes:
+  pgdata:
+    driver: local

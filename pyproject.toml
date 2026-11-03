@@ -1,0 +1,28 @@
+# =============================================================================
+# dailyNewsDigest2 - pyproject.toml
+# -----------------------------------------------------------------------------
+# 目的（Why）: pytest および ruff（PEP8準拠リンター）の設定をプロジェクト単位で定義する。
+# 変更履歴（Change Log）:
+#   2026-11-02 - 初版作成（Step 2-4）
+# =============================================================================
+
+[project]
+name = "dailynewsdigest2"
+version = "3.0.0"
+description = "個人向けRSS収集・無料LLMニュース選定要約システム"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",  # 行長はフォーマッタ・コメント密度を優先
+    "B008",  # FastAPI標準の Depends() / Query() デフォルト引数を許容
+]
