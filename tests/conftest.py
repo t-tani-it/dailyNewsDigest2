@@ -1,7 +1,7 @@
 """pytest 共通フィクスチャ（SQLite インメモリDB・FastAPI テストクライアント）。
 
 目的（Why）:
-    PostgreSQL（Docker）を起動しなくても Phase 1 / Phase 2 のロジックを高速に検証できるよう、
+    PostgreSQL 18を起動しなくても Phase 1 / Phase 2 のロジックを高速に検証できるよう、
     テストごとに独立した SQLite インメモリDBと FastAPI `TestClient` を提供する。
 仕様（What）:
     - `db_engine`: 全10テーブルを作成した SQLite インメモリ Engine
@@ -18,6 +18,7 @@
     PostgreSQL コンテナを用いた結合テスト用フィクスチャの追加。
 変更履歴（Change Log）:
     2026-11-02 - 初版作成（Step 2-5）
+    2026-11-06 - 実 `.env` のLLM設定をテストへ持ち込まないための自動フィクスチャを追加
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import Base, get_engine, get_session_factory
 from app.main import app
 from app.models import init_all_tables
@@ -39,6 +41,31 @@ from app.models import init_all_tables
 # =============================================================================
 
 TEST_DATABASE_FILENAME: str = "test_daily_digest.db"
+
+
+@pytest.fixture(autouse=True)
+def isolate_external_llm_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """実 `.env` のLLM設定をテストへ持ち込まず、外部API呼び出しを防止する。
+
+    解説：
+        `.env` に `LLM_ENABLED=true` や実APIキーが設定されている場合でも、
+        テストが実Gemini / OpenRouterへ通信しないよう、共有設定をテスト中だけ
+        安全側へ上書きする。LLM機能を検証するテストは、明示的にモックProviderを
+        渡すか、DB設定を個別に更新する。
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch): テスト終了時に設定を自動復元するfixture。
+
+    Side Effects:
+        `get_settings()` が返す共有設定インスタンスのLLM関連値のみを一時変更する。
+    """
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_enabled", False)
+    monkeypatch.setattr(settings, "gemini_enabled", False)
+    monkeypatch.setattr(settings, "openrouter_enabled", False)
+    monkeypatch.setattr(settings, "gemini_free_tier_confirmed", False)
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
 
 
 @pytest.fixture()
