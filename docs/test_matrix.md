@@ -80,7 +80,7 @@
 
 以下は自動テストの対象外であり、実環境での確認が必要である。
 
-- Docker ComposeによるPostgreSQL 16の起動
+- Docker ComposeによるPostgreSQL 16の起動（任意・保留。正式手順はPostgreSQL 18 + venv）
 - 実際のGemini API / OpenRouter APIを使った無料枠・レート制限の挙動（APIキー未設定）
 - 実際のRSS配信元の利用規約・配信仕様の変動
 - 同一Wi-Fi内のスマートフォンからの実機表示（PCのLAN IP経由の同一ホストアクセスはHTTP 200）
@@ -89,3 +89,4 @@
 
 - 2026-11-03：初版作成（Step 5-3）。32項目の対応表と113テストの結果を記録。
 - 2026-11-03：実環境での追加検証（PostgreSQL 18一時クラスタ、Alembic、公開モデル一覧、LAN IPスモーク）を追記。
+- 2026-11-06：Dockerを任意・保留に変更し、正式手順をPostgreSQL 18 + venvへ更新。

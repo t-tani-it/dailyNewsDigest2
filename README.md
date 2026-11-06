@@ -59,7 +59,9 @@ dailyNewsDigest2/
 ├── tests/             → pytest
 ├── docs/              → progress.md / handover.md / test_matrix.md
 ├── .env.example
-├── compose.yaml
+├── compose.yaml       → Docker任意（PostgreSQL 16）
+├── Dockerfile         → Docker任意
+├── .dockerignore      → Docker任意
 └── README.md
 ```
 
@@ -91,9 +93,11 @@ dailyNewsDigest2/
 
 - Windows
 - Python 3.11
-- PostgreSQL 16（Docker Compose）
-- Docker Desktop（PostgreSQL起動用）
+- PostgreSQL 18（Windowsサービス、正式手順）
+- Docker Desktop / PostgreSQL 16コンテナ（任意。現環境では未検証）
 - テスト時はSQLiteを使用（PostgreSQL不要）
+
+正式なローカル実行は **PostgreSQL 18 + venv** です。Docker Desktopは必須ではありません。
 
 GPUは必須ではありません。本アプリのLLM処理は外部APIを利用するため、ローカルGPUは使用しません。
 
@@ -133,7 +137,7 @@ Copy-Item .env.example .env
 copy .env.example .env
 ```
 
-`.env` はGit管理対象外です。実際のAPIキーは `.env` にのみ記入し、コード・README・コミットメッセージには記載しないでください。
+`.env` はGit管理対象外です。実際のAPIキーは `.env` にのみ記入し、コード・README・コミットメッセージには記載しないでください。AIエージェントには `.env` の内容を読ませないでください。
 
 ### 5.3 APIキーと無料枠の設定
 
@@ -157,20 +161,67 @@ LLM_ENABLED=true
 - APIキーが未設定、または無料確認ができない場合、LLM処理は安全側で停止します。
 - `ALLOW_PAID_LLM_EXECUTION` はコード上の定数で `False` に固定されており、環境変数や設定画面から変更できません。
 
+### 5.4 PostgreSQL 18のDBとロール作成
+
+正式手順では、既存のPostgreSQL 18にアプリ専用のロールとDBを作成します。管理者ユーザーでpgAdminまたはpsqlに接続し、次を実行します。
+
+```sql
+CREATE ROLE digest LOGIN PASSWORD 'CHANGE_ME_LOCAL_ONLY';
+CREATE DATABASE digest OWNER digest;
+```
+
+既にロールが存在する場合は、パスワードだけ変更します。
+
+```sql
+ALTER ROLE digest WITH PASSWORD 'CHANGE_ME_LOCAL_ONLY';
+```
+
+`.env` のDB設定を実際の値に合わせます。
+
+```dotenv
+POSTGRES_USER=digest
+POSTGRES_PASSWORD=CHANGE_ME_LOCAL_ONLY
+POSTGRES_DB=digest
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+DATABASE_URL=postgresql+psycopg://digest:CHANGE_ME_LOCAL_ONLY@localhost:5432/digest
+```
+
+- `postgres` スーパーユーザーをアプリ用に使わないでください。
+- パスワードに `@`、`:`、`/`、`#`、`%` などを使う場合はURLエンコードが必要です。最初は英数字と `-`、`_` だけにすると安全です。
+- 実パスワードはチャットに貼らず、`.env` にのみ設定してください。
+- Docker Composeを使う場合、この手動作成は不要です。Composeが `POSTGRES_*` から自動作成します。
+
 ---
 
 ## 6. 起動
 
-### 6.1 PostgreSQLとアプリをDocker Composeで起動
+### 6.1 PostgreSQL 18 + venvで起動（正式手順）
+
+PostgreSQL 18のWindowsサービスが起動していることを確認します。
+
+PowerShell：
 
 ```powershell
-docker compose up -d
+Get-Service postgresql-x64-18
+.\.venv\Scripts\Activate.ps1
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-初回はマイグレーションを実行します。
+コマンドプロンプト（cmd）：
+
+```bat
+sc query postgresql-x64-18
+.\.venv\Scripts\activate.bat
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+サービスが停止している場合は、管理者PowerShellで次を実行します。
 
 ```powershell
-docker compose exec app alembic upgrade head
+Start-Service postgresql-x64-18
 ```
 
 ブラウザで次を開きます。
@@ -185,38 +236,62 @@ http://localhost:8000/
 http://（PCのIPアドレス）:8000/
 ```
 
+Windows FirewallでTCP 8000の受信許可が必要な場合があります。許可範囲は同一サブネットに限定してください。
+
 > 初期版は個人利用・ローカルネットワーク利用を前提としています。インターネットへ無認証で公開しないでください。
 
-### 6.2 ローカル（venv）で起動
+### 6.2 Docker Composeで起動（任意）
 
-PostgreSQLをDockerで起動したうえで、アプリをローカル実行します。
+Docker Desktopを導入している場合のみ使用できます。現環境ではDocker CLIが未導入のため、この手順は未検証です。ComposeのDBはPostgreSQL 16であり、正式手順のPostgreSQL 18とは別物です。
+
+既存のPostgreSQL 18が5432番を使用しているため、`.env` でホスト側ポートを5433番に変更します。
+
+```dotenv
+POSTGRES_PORT=5433
+DATABASE_URL=postgresql+psycopg://digest:CHANGE_ME_LOCAL_ONLY@localhost:5433/digest
+```
 
 PowerShell：
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-alembic upgrade head
-uvicorn app.main:app --reload
+docker compose up -d
+docker compose exec app alembic upgrade head
 ```
 
 コマンドプロンプト（cmd）：
 
 ```bat
-.\.venv\Scripts\activate.bat
-alembic upgrade head
-uvicorn app.main:app --reload
+docker compose up -d
+docker compose exec app alembic upgrade head
 ```
+
+ブラウザで `http://localhost:8000/` を開きます。スマートフォンからは `http://（PCのIPアドレス）:8000/` を開きます。
+
+> Composeの `app` / `worker` はコンテナ内で `db:5432` に接続します。`localhost:5433` はホスト側からDBへ接続する場合の設定です。
+
+- Dockerのデータは、空き容量のあるローカルドライブに置くことを検討してください。
+- `.env` を変更した場合は `docker compose up -d --force-recreate` で再作成します。
+- テストデータを消して作り直す場合のみ `docker compose down -v` を使います。DBデータが削除されます。
 
 ### 6.3 定期実行ワーカー
 
-Docker Composeでは `worker` サービスが起動します。ローカルで個別に起動する場合は次を実行します。
+正式手順では、Webプロセスとは別のターミナルでワーカーを起動します。
+
+PowerShell：
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 python -m app.jobs.scheduler_worker
 ```
 
-定期実行は毎朝 07:00（Asia/Tokyo）です。二重実行はDBロックで防止します。
+コマンドプロンプト（cmd）：
+
+```bat
+.\.venv\Scripts\activate.bat
+python -m app.jobs.scheduler_worker
+```
+
+Docker Composeを使う場合は `worker` サービスが起動します。定期実行は毎朝 07:00（Asia/Tokyo）です。二重実行はDBロックで防止します。
 
 ---
 
@@ -290,7 +365,7 @@ ruff check app alembic tests
 
 要件32項目とテストの対応は [`docs/test_matrix.md`](docs/test_matrix.md) を参照してください。
 
-2026-11-03 時点の結果：
+2026-11-06 時点の結果：
 
 - `pytest`：**113 passed**
 - `ruff check app alembic tests`：**All checks passed**
@@ -302,6 +377,7 @@ ruff check app alembic tests
 ## 10. セキュリティ
 
 - APIキーは `.env` のみで管理し、Git管理対象外にする
+- AIエージェントには `.env` の内容を読ませない。設定確認は「設定済み/未設定」など、値を表示しない方法に限定する
 - APIキーをブラウザへ送信しない
 - ログ出力時にAPIキー・ローカルパス・トークンをマスクする
 - RSS取得元URLのSSRF検証（プライベートIP・不正スキームの拒否）
@@ -317,8 +393,9 @@ ruff check app alembic tests
 
 ## 11. 既知の制約・未検証事項
 
-- Docker CLIが開発環境に無かったため、`compose.yaml` の実起動とPostgreSQL 16への実接続は未検証です。Docker Desktop導入後に確認してください。PostgreSQL 18の一時クラスタでは`alembic upgrade head`と主要画面の動作を確認済みです。
-- 実際のGemini / OpenRouter無料APIは、`.env`にAPIキーを設定するまで未検証です。OpenRouterの公開モデル一覧とGemini APIの到達性は確認済みです。
+- Docker Desktopは必須ではありません。正式手順はPostgreSQL 18（Windowsサービス）+ venvです。`compose.yaml` は任意（PostgreSQL 16）として残していますが、現環境ではDocker CLI未導入のため未検証です。PostgreSQL 18の一時クラスタでは`alembic upgrade head`と主要画面の動作を確認済みです。
+- Dockerを使う場合、既存PostgreSQL 18と5432番が競合するため、`.env` で `POSTGRES_PORT=5433` を設定してください。システムドライブの空き容量が少ない場合は、Dockerのデータ置き場を空き容量のあるローカルドライブへ変更してください。
+- 実際のGemini / OpenRouter無料APIのレート制限・無料枠・モデル可用性は未検証です。OpenRouterの公開モデル一覧とGemini APIの到達性は確認済みです。APIキーの値はエージェントが確認しません。
 - 同一Wi-Fi内の実機スマートフォンからの表示は未確認です。PCのLAN IP経由では主要画面がHTTP 200でした。Windows Firewallの受信許可（TCP 8000、同一サブネット限定）が必要な場合があります。
 - Phase 2の実測は実行した日のみ記録されます。2日分の実測を確定するには、別日に通常更新または `POST /api/metrics/measure` を実行してください。
 - RSS取得元の利用条件は、初期候補について確認済みの状態で登録していますが、運用前に各サイトの最新の利用規約を確認してください。

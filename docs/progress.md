@@ -13,8 +13,8 @@
 - フェーズ完了時に `docs/handover.md` を更新する。
 
 ## 現在地
-- 現在のサブステップ：**Step 5-3 完了 / Phase 1〜4 全サブステップ完了 / 残確認事項を実行済み（外部環境待ちあり）**
-- 最終更新日：2026-11-03
+- 現在のサブステップ：**Step 5-3 完了 / Phase 1〜4 全サブステップ完了 / Docker任意化・秘密情報非読取ルール反映済み**
+- 最終更新日：2026-11-06
 
 ---
 
@@ -91,9 +91,17 @@
 - [x] `alembic.ini` のcp932 `UnicodeDecodeError` をASCII化で修正し、`alembic upgrade head --sql` のオフラインSQL生成とオンライン適用を確認。
 - [x] OpenRouter公開モデル一覧APIのHTTP 200、`:free` 14件、`openrouter/free` の存在を確認。
 - [x] Gemini APIの到達性（APIキー無しでHTTP 403）を確認。
-- [ ] Docker ComposeによるPostgreSQL 16の起動（Docker CLI未導入）。
-- [ ] 実際のGemini / OpenRouter API呼び出し（APIキー未設定）。
+- [ ] Docker ComposeによるPostgreSQL 16の起動（Docker CLI未導入。任意・保留）。
+- [ ] 実際のGemini / OpenRouter API呼び出し（APIキーの値は確認せず、無料枠・モデル可用性を確認）。
 - [ ] 同一Wi-Fi内の実機スマートフォンからの表示（PCのLAN IP経由の同一ホストアクセスはHTTP 200、Firewall設定待ち）。
+
+## ドキュメント方針更新（2026-11-06）
+- [x] Dockerを必須から任意へ変更し、正式手順をPostgreSQL 18（Windowsサービス）+ venvに統一。
+- [x] `README.md` を更新（動作環境、DB/ロール作成、起動、Docker任意、既知の制約）。
+- [x] プロジェクト `AGENTS.md` を更新（DB実行環境、技術スタック、ビルド・実行・テスト）。
+- [x] 親 `AGENTS.md` とプロジェクト `AGENTS.md` に実パスワード・秘密情報の非読取ルールを追記。
+- [ ] PostgreSQL 18の専用ロール/DB作成と `.env` 設定（ユーザー作業）。
+- [ ] PostgreSQL 18接続でのAlembic・主要画面の再確認（`.env` 設定後）。
 
 ---
 
@@ -225,11 +233,17 @@
   - `tests/test_usage_dashboard.py`（8テスト追加）
 - 検証結果：`pytest` 113 passed / `ruff check app alembic tests` エラー0件
 
+## ドキュメント方針更新 完了記録（2026-11-06）
+- 実施内容：Dockerを任意化し、正式手順をPostgreSQL 18（Windowsサービス）+ venvへ変更。README/AGENTSの起動手順・技術スタック・既知の制約を更新。親とプロジェクトのAGENTS.mdに秘密情報非読取ルールを追加。
+- テスト隔離：実 `.env` のLLM設定をテストが拾わないよう、`tests/conftest.py` にLLM関連設定を安全側へ上書きする自動フィクスチャを追加。
+- 変更ファイル：`README.md`, `AGENTS.md`, `tests/conftest.py`, `docs/progress.md`, `docs/handover.md`, `docs/test_matrix.md`
+- 検証：`pytest` 113 passed、`ruff check app alembic tests` エラー0件、`git diff --check`、公開禁止情報スキャンを実施。
+
 ## 未完了・注意事項
 - Gitリポジトリは初期化済み。`main` ブランチで論理的な複数コミットに分割し、publicリポジトリへpush済み。
-- Docker CLI 未導入のため、PostgreSQL 16 の実接続・Alembic マイグレーション実行は未検証。PostgreSQL 18の一時クラスタでのオンライン適用は確認済み。
+- Dockerは任意。Docker CLI未導入のため、PostgreSQL 16の実接続・Alembicマイグレーション実行は未検証（保留）。正式手順はPostgreSQL 18（Windowsサービス）+ venv。PostgreSQL 18の一時クラスタでのオンライン適用は確認済み。
 - Phase 2 の実測は「実行した日」のみ記録される。2日分の実測を確定するには、別日に `POST /api/metrics/measure` または通常更新を実行する必要がある。
-- 実際のGemini / OpenRouter無料APIのレート制限・無料枠挙動は未確認。OpenRouter公開モデル一覧とGemini APIの到達性は確認済み。`.env`にAPIキーを設定して実呼び出しを確認する必要がある。
+- 実際のGemini / OpenRouter無料APIのレート制限・無料枠・モデル可用性は未確認。OpenRouter公開モデル一覧とGemini APIの到達性は確認済み。APIキーの値はエージェントが確認せず、実呼び出しの結果のみ確認する必要がある。
 - 同一Wi-Fi内スマートフォンからの実機表示は未確認。PCのLAN IP経由の同一ホストアクセスは主要画面HTTP 200。Windows Firewallの受信許可（TCP 8000、同一サブネット限定）が必要な場合がある。
 - `alembic.ini` はWindows cp932対策としてASCIIのみで維持する。
 - 初期版は認証機能を持たないため、インターネットへ公開しないこと。

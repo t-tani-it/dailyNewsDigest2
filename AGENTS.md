@@ -25,7 +25,14 @@ OpenCode は本ファイルを参照して作業を行う。
 - `.venv/` と `venv/` は `.gitignore` で Git 除外する（絶対パスを含むため）。
 - OS：Windows を前提とする。
 - GPU：CUDA が利用可能な場合は使用する（利用不可の場合は CPU fallback）。
-- データベース：PostgreSQL（Docker Compose）。テスト時は SQLite を許容する。
+- データベース：PostgreSQL 18（Windowsサービス + venv）を正式手順とする。Docker Composeは任意（将来用・現環境では未検証）。テスト時は SQLite を許容する。
+
+## DB実行環境（正式手順）
+- 正式なローカル実行は **PostgreSQL 18（Windowsサービス）+ venv** とする。
+- Docker Composeは任意であり、Docker Desktop未導入の現環境では未検証とする。
+- Dockerを使う場合、既存PostgreSQL 18とポート5432が競合するため、`.env` で `POSTGRES_PORT=5433` を指定する。
+- Dockerのデータは、空き容量のあるローカルドライブに置くことを検討する。
+- テストはSQLiteで行い、PostgreSQL 18の統合確認は別途行う。
 
 ## README記載ルール
 - README の「セットアップ」と「起動」には、PowerShell とコマンドプロンプト（cmd）の両方の仮想環境有効化手順を記載する。
@@ -48,6 +55,16 @@ OpenCode は本ファイルを参照して作業を行う。
 - APIタイムアウト、不正JSONへの対応。
 - 初期版は個人利用・ローカルネットワーク利用を対象とし、インターネットへ無認証公開しない。
 - スマートフォンは同一Wi-Fi内から閲覧できることを初期受入条件とする。
+
+### 実パスワード・秘密情報の非読取ルール（必須）
+- AIエージェントは、`.env`、`.env.*`、認証情報ファイル、秘密鍵、パスワード管理ファイルの内容を読み取ってはならない。
+- 秘密情報の確認は、値を表示しない範囲（設定済み/未設定、長さ、真偽、接続成功/失敗）に限定する。
+- 実パスワード、APIキー、トークン、Cookie、セッションID、秘密鍵を、チャット・ログ・コミット・issue・PR・テスト出力へ表示しない。
+- アプリの実行プロセスが `.env` を環境変数として読み込むことは許容する。ただし、エージェント自身が内容を取得・表示してはならない。
+- `Get-Content`、`cat`、`printenv`、`docker compose config`、`env` など、秘密情報が出力され得るコマンドは実行しない。必要な場合は出力をマスクする。
+- 誤って秘密情報を読み取った、または出力した場合は、直ちに作業を停止し、ユーザーへ報告する。報告では値そのものを再表示せず、対象ファイル・実行コマンド・影響範囲・ローテーションの要否を示す。
+- 実APIキーが必要な検証は、ユーザーが `.env` に設定し、エージェントは値を表示しないコマンドのみ実行する。またはユーザー自身が実行する。
+- `.env` はGit管理外を維持する。`.env.example` にはプレースホルダーのみを記載する。
 
 ## LLM 無料API利用ポリシー（設定画面から無効化不可）
 - **Gemini**：請求先未設定の Free Tier プロジェクトのみ使用。Free Tier と確認されたモデルのみ実行。
@@ -88,7 +105,8 @@ OpenCode は本ファイルを参照して作業を行う。
 - google-genai（Gemini API）
 - APScheduler
 - pytest / pytest-asyncio
-- Docker Compose（PostgreSQL）
+- PostgreSQL 18（Windowsサービス、正式手順）
+- Docker Compose（任意、PostgreSQL 16。現環境では未検証）
 - HTML / CSS / Vanilla JavaScript
 
 必要以上に技術やフレームワークを増やさないこと。
@@ -111,7 +129,9 @@ dailyNewsDigest2/
 ├── tests/             → pytest
 ├── docs/              → progress.md / handover.md
 ├── .env.example
-├── compose.yaml
+├── compose.yaml       → Docker任意（PostgreSQL 16）
+├── Dockerfile         → Docker任意
+├── .dockerignore      → Docker任意
 └── README.md
 ```
 
@@ -185,11 +205,13 @@ dailyNewsDigest2/
 ## ビルド・実行・テスト
 - セットアップ：`python -m venv .venv`
 - 依存導入：`.\.venv\Scripts\Activate.ps1` の後 `pip install -r requirements.txt`
-- API起動：`uvicorn app.main:app --reload`
+- DB起動：Windowsサービス `postgresql-x64-18` を開始（`Start-Service postgresql-x64-18`）
+- DBマイグレーション：`alembic upgrade head`
+- API起動：`uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
+- ワーカー：`python -m app.jobs.scheduler_worker`
 - テスト：`pytest`
 - Lint：`ruff check .`
-- DBマイグレーション：`alembic upgrade head`
-- Docker：`docker compose up -d`
+- Docker（任意）：`docker compose up -d`
 
 ## DB 設計ルール
 - 日時はタイムゾーン情報を保持して保存する（UTC保存、表示時に Asia/Tokyo 変換）。

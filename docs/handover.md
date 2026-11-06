@@ -14,7 +14,7 @@
 | 項目 | 決定内容 | 理由 |
 |---|---|---|
 | アーキテクチャ | MVC + Service + Repository + Provider(Adapter) | Controllerへのロジック混入防止、Gemini/OpenRouter差分の局所化 |
-| DB | PostgreSQL（本番・Compose）、SQLite（テスト） | 指示書必須要件とテスト実行容易性の両立 |
+| DB | PostgreSQL 18（Windowsサービス + venv、正式手順）、SQLite（テスト） | 指示書必須要件とテスト実行容易性の両立。Docker Composeは任意 |
 | 日時 | UTC保存・表示時 `Asia/Tokyo` 変換 | タイムゾーン情報保持の要件 |
 | 実行単位 | `news_runs.run_id`（UUID）でトークン集計 | 「実行単位で集計」要件 |
 | 分析参照 | `run_articles.analysis_id` で表示時点の分析を参照 | 過去実行結果の不変性確保 |
@@ -28,6 +28,7 @@
 - 有料モデルのAPI呼び出し（比較3モデルは参考料金計算のみ）
 - 料金・無料枠の恒久的ハードコード
 - 公開禁止情報（ローカル絶対パス・APIキー・個人ID）の混入
+- AIエージェントによる `.env`・認証情報ファイルの内容の読み取り
 - LLMの無限リトライ
 - RSSの利用条件未確認ソースの自動使用
 - 記事全文の自動取得
@@ -58,10 +59,11 @@
 | 2026-11-03 | Step 5-1 | カテゴリ変更時の既存分析再利用（新規トークン消費0）および `ai_pending` 保留実行の再開処理（`resume_pending_ai_run`, `POST /api/news/retry-pending`）実装 |
 | 2026-11-03 | Step 5-2 | 過去実行履歴のトークン表示拡充、AI使用量ダッシュボード（`GET /usage`, `GET /api/usage`）、モデル別・実行別・切替履歴・有料3モデル単価確認状態を実装 |
 | 2026-11-03 | Step 5-3 | 要件32項目のテスト確認表、README、最終ハンドオーバー、Git初期化・分割コミット・GitHub公開を実施 |
+| 2026-11-06 | ドキュメント方針更新 | Docker任意化、PostgreSQL 18 + venv正式化、README/AGENTS更新、秘密情報非読取ルール追記、テストLLM隔離 |
 
 ### 未実施
-- Docker Desktop導入後のPostgreSQL 16実接続・`alembic upgrade head`の実機確認（Docker CLI未導入）
-- 実際のGemini / OpenRouter無料APIを用いたレート制限・無料枠挙動の確認（APIキー未設定）
+- Docker Composeの実機確認（任意・保留。正式手順はPostgreSQL 18 + venv）
+- 実際のGemini / OpenRouter無料APIを用いたレート制限・無料枠・モデル可用性の確認（APIキーの値は未確認）
 - 同一Wi-Fi内スマートフォンからの実機表示確認（PCの同一ホストからLAN IP経由の主要画面表示は確認済み）
 
 ---
@@ -84,8 +86,9 @@
 ### 検証
 - 公開禁止情報チェック：ローカル絶対パス・実APIキー・個人IDを含まないことを確認。
 - ツール実行確認：`uvicorn 0.54.0` / `alembic 1.20.1` / `pytest 8.4.2`。
-- **未検証**：Docker CLI が本環境に無いため `compose.yaml` の実起動は未確認。Docker Desktop 導入環境での確認が必要。
-- **未検証**：PostgreSQL 実接続（Docker導入後に `alembic upgrade head` で確認）。
+- **任意・未検証**：Docker CLIが本環境に無いため `compose.yaml` の実起動は未確認。Docker Desktop導入時のみ確認する。
+- **確認済み**：PostgreSQL 18の一時クラスタで `alembic upgrade head` と主要画面の動作を確認。
+- **テスト隔離**：実 `.env` のLLM設定をテストへ持ち込まない自動フィクスチャを `tests/conftest.py` に追加し、外部API呼び出しを防止。`pytest` 113 passed、`ruff` エラー0件。
 
 ### Step 2-5 の成果
 - テスト用DBはテストごとの一時SQLiteファイル（`tmp_path`）とし、アプリのリクエストセッションとテストセッションを独立コネクションで扱う。
@@ -139,7 +142,7 @@
   - `pytest`：**113 passed**。
   - `ruff check app alembic tests`：**All checks passed**。
 - **README整備（Step 5-3）**：
-  - 概要、主な機能、アーキテクチャ、無料LLMポリシー、PowerShell/cmd両方の仮想環境有効化、セットアップ、Docker/ローカル起動、画面/API一覧、テスト、セキュリティ、既知の制約を記載。
+  - 概要、主な機能、アーキテクチャ、無料LLMポリシー、PowerShell/cmd両方の仮想環境有効化、セットアップ、PostgreSQL 18 + venv起動（正式）、Docker Compose起動（任意）、画面/API一覧、テスト、セキュリティ、既知の制約を記載。
 - **GitHub反映（Step 5-3）**：
   - Gitリポジトリを `main` ブランチで初期化。
   - 骨格、コア/ORM、スキーマ/Repository、RSS/計測、LLM、Web、テスト、ドキュメントの論理的な複数コミットに分割。
@@ -147,7 +150,7 @@
   - `gh` CLI（HTTPS認証）でpublicリポジトリを作成し、`main` をpush。
 
 ### 残確認事項の実行結果（2026-11-03）
-- **Docker / PostgreSQL 16**：`docker` および `docker compose` は未導入。`compose.yaml` のPostgreSQL 16起動は未実施。
+- **Docker / PostgreSQL 16（任意）**：`docker` および `docker compose` は未導入。`compose.yaml` のPostgreSQL 16起動は未実施。正式手順はPostgreSQL 18（Windowsサービス）+ venv。
 - **PostgreSQL 18 一時クラスタ**：既存のPostgreSQL 18サービス（ポート5432、`scram-sha-256`）は認証情報不足で接続不可であったため、インストール済みバイナリで一時クラスタ（ポート55432、`trust`認証、`autovacuum=off`）を作成した。`alembic upgrade head` を実行し、`alembic_version` を含む11テーブルの作成を確認。FastAPIをPostgreSQL接続で起動し、`/health` の `db_connected=true` と、`/`・`/usage`・`/metrics`・`/history`・`/settings` のHTTP 200を確認した。検証後に一時クラスタとデータを削除した。
 - **Alembic設定**：Windows日本語ロケール（cp932）で `alembic.ini` の `UnicodeDecodeError` が発生するため、ヘッダーコメントをASCIIのみに変更した。`alembic upgrade head --sql` のオフラインSQL生成と、PostgreSQL 18一時クラスタへのオンライン適用が成功した。
 - **LLM API**：`.env` が無く、`GEMINI_API_KEY`・`OPENROUTER_API_KEY`・各ENABLEDフラグは未設定。実API呼び出し、無料枠・レート制限、自動切替、使用量記録は未検証。OpenRouterの公開モデル一覧APIはHTTP 200（451モデル、`:free` 14件、`openrouter/free` あり）を確認。Gemini APIはAPIキー無しでHTTP 403（未登録呼び出し拒否）を確認し、到達性のみ確認した。
@@ -163,14 +166,14 @@
   ```
 
 - `alembic.ini` はWindows cp932対策としてASCIIのみで維持する。日本語コメントを追加すると `UnicodeDecodeError` が再発する。
-- PostgreSQL 18の一時クラスタでは、Windowsの共有メモリ確保エラー（`error code 487` / `0xC0000142`）により接続が不安定になる事象を確認した。短時間の検証は `autovacuum=off` で成功したが、長時間運用の安定性は未確認。標準構成はDocker ComposeのPostgreSQL 16とする。
+- PostgreSQL 18の一時クラスタでは、Windowsの共有メモリ確保エラー（`error code 487` / `0xC0000142`）により接続が不安定になる事象を確認した。短時間の検証は `autovacuum=off` で成功したが、長時間運用の安定性は未確認。標準構成はPostgreSQL 18（Windowsサービス）+ venvとし、Docker Composeは任意とする。
 
 ---
 
 ## 4. 残タスク
-- Docker Desktop導入後にPostgreSQL 16への接続と `alembic upgrade head` を確認する（PostgreSQL 18一時クラスタでのオンライン適用は確認済み）。
+- Docker Composeは任意・保留。Docker Desktop導入時にPostgreSQL 16への接続と `alembic upgrade head` を確認する（PostgreSQL 18一時クラスタでのオンライン適用は確認済み）。
 - Phase 2の2日分実測を確定するため、別日に通常更新または `POST /api/metrics/measure` を実行する。
-- 実際のGemini / OpenRouter無料APIを設定し、無料枠・レート制限・自動切替の実挙動を確認する（OpenRouter公開モデル一覧とGemini APIの到達性は確認済み）。
+- 実際のGemini / OpenRouter無料APIの無料枠・レート制限・自動切替・モデル可用性を確認する（OpenRouter公開モデル一覧とGemini APIの到達性は確認済み。APIキーの値はエージェントが確認しない）。
 - 同一Wi-Fi内のスマートフォンから実機表示を確認する（PCのLAN IP経由の同一ホスト表示は確認済み）。
 - 初期版は認証機能を持たないため、インターネットへ公開しない。公開する場合は認証・HTTPS・CSRF対策等を追加する。
 
@@ -203,7 +206,12 @@ ruff check app alembic tests
 ```
 
 ```powershell
-# DB（Docker Compose）
+# DB（正式手順：PostgreSQL 18 Windowsサービス + venv）
+# 管理者PowerShellでサービスを開始
+Start-Service postgresql-x64-18
+alembic upgrade head
+
+# DB（任意：Docker Compose。既存5432と競合する場合は .env で POSTGRES_PORT=5433）
 docker compose up -d
 docker compose exec app alembic upgrade head
 ```
@@ -228,3 +236,4 @@ gh repo create dailyNewsDigest2 --public --source . --remote origin --push
 - 2026-11-03: Step 4-1〜4-5（Phase 3完了）および Step 5-1（既存分析再利用・保留再開）完了を反映
 - 2026-11-03: Step 5-2（使用量ダッシュボード・履歴拡充）および Step 5-3（32項目テスト確認・README・GitHub反映）完了を反映
 - 2026-11-03: 残確認事項（PostgreSQL 18一時クラスタ、`alembic.ini` ASCII化、公開モデル一覧接続、LAN IPスモーク）の結果を反映
+- 2026-11-06: Docker任意化、PostgreSQL 18 + venv正式化、README/AGENTS更新、秘密情報非読取ルール追記、テストLLM隔離を反映
